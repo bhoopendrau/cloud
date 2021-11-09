@@ -172,6 +172,143 @@ exports.agentRequest = functions.firestore.document('OngoingAgentAllot/{allotId}
 
 
 
+exports.orderNotification = functions.firestore.document('Orders/{orderDocId}').onUpdate(async (Change, context)=>{
+    if (Change.after.data()) {
+        const valueObject = Change.after.data();
+        console.log("Order change Detected");
+        const status = valueObject.status;
+        var sendTitle = '';
+        var sendType = '';
+        var sendFcmTo = '';
+
+
+        switch(status){
+            case 'ORDER REQUESTED' : {
+                sendTitle = valueObject.customerName;
+                sendType = 'OrderRequestUpdated';
+                sendFcmTo = valueObject.shopFCM;
+            }
+            case 'PROCESSING' : {
+                sendTitle = valueObject.shopName;
+                if (valueObject.type == 'initByShop') {
+                    sendType = 'BillUpdated'
+                } else {
+                    sendType = 'RequestAccepted';
+                }
+                sendFcmTo = valueObject.customerFCM;
+            }
+            case 'CONFIRMED' : {
+                sendTitle = valueObject.customerName;
+                sendType = 'BillAccepted';
+                sendFcmTo = valueObject.shopFCM;
+            }
+            case 'ORDER DELIVERED' : {
+                sendTitle = valueObject.shopName;
+                sendType = 'OrderDelivered';
+                sendFcmTo = valueObject.customerFCM;
+            }
+            default : {
+                sendTitle = 'Order Delivered';
+                sendType = 'OrderDelivered';
+                sendFcmTo = valueObject.customerFCM;
+            }
+        }
+    
+        // Create a notification
+        const payload = {
+            data: {
+                title:sendTitle,
+                type: sendType,
+                orderId: orderId,
+            }
+        };
+
+        //Create an options object that contains the time to live for the notification and the priority
+        const options = {
+            priority: "high"
+        };
+        return admin.messaging().sendToDevice(sendFcmTo, payload, options);
+    
+    } else {
+        return true;
+    }
+    
+});
+
+exports.newOrderNotifications = functions.firestore.document('Orders/{orderDocId}').onCreate(async (Change, context)=>{
+    if (Change.after.data()) {
+        const valueObject = Change.after.data();
+        console.log("Order change Detected");
+        const status = valueObject.status;
+        var sendTitle = '';
+        var sendType = '';
+        var sendFcmTo = '';
+
+
+        if (valueObject.type == 'initByShop') {
+            sendTitle = valueObject.shopName;
+            sendType = 'OrderDelivered';
+            sendFcmTo = valueObject.customerFCM;
+        } else {
+            sendTitle = valueObject.customerName;
+            sendType = 'OrderRequestUpdated';
+            sendFcmTo = valueObject.shopFCM;
+        }
+
+
+        switch(status){
+            case 'ORDER REQUESTED' : {
+                sendTitle = valueObject.customerName;
+                sendType = 'OrderRequestUpdated';
+                sendFcmTo = valueObject.shopFCM;
+            }
+            case 'PROCESSING' : {
+                sendTitle = valueObject.shopName;
+                if (valueObject.type == 'initByShop') {
+                    sendType = 'BillUpdated'
+                } else {
+                    sendType = 'RequestAccepted';
+                }
+                sendFcmTo = valueObject.customerFCM;
+            }
+            case 'CONFIRMED' : {
+                sendTitle = valueObject.customerName;
+                sendType = 'BillAccepted';
+                sendFcmTo = valueObject.shopFCM;
+            }
+            case 'ORDER DELIVERED' : {
+                sendTitle = valueObject.shopName;
+                sendType = 'OrderDelivered';
+                sendFcmTo = valueObject.customerFCM;
+            }
+            default : {
+                sendTitle = 'Order Delivered';
+                sendType = 'OrderDelivered';
+                sendFcmTo = valueObject.customerFCM;
+            }
+        }
+    
+        // Create a notification
+        const payload = {
+            data: {
+                title:sendTitle,
+                type: sendType,
+                orderId: orderId,
+            }
+        };
+
+        //Create an options object that contains the time to live for the notification and the priority
+        const options = {
+            priority: "high"
+        };
+        return admin.messaging().sendToDevice(sendFcmTo, payload, options);
+    
+    } else {
+        return true;
+    }
+    
+});
+
 //const functions = require("firebase-functions");
 
 // // Create and Deploy Your First Cloud Functions
