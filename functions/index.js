@@ -177,6 +177,7 @@ exports.orderNotification = functions.firestore.document('Orders/{orderDocId}').
         const valueObject = Change.after.data();
         console.log("Order change Detected");
         const status = valueObject.status;
+        console.log(status);
         var sendTitle = '';
         var sendType = '';
         var sendFcmTo = '';
@@ -207,6 +208,18 @@ exports.orderNotification = functions.firestore.document('Orders/{orderDocId}').
                 sendType = 'OrderDelivered';
                 sendFcmTo = valueObject.customerFCM;
             }
+            case 'ORDER DELIVERED' : {
+                if (valueObject.rejectedBy == "Customer") {
+                    sendTitle = valueObject.customerName;
+                    sendType = 'RejectedByCustomer';
+                    sendFcmTo = valueObject.shopFCM;
+                } else {
+                    sendTitle = valueObject.shopName;
+                    sendType = 'RejectedByShop';
+                    sendFcmTo = valueObject.customerFCM;
+                }
+                
+            }
             default : {
                 sendTitle = 'Order Delivered';
                 sendType = 'OrderDelivered';
@@ -219,7 +232,7 @@ exports.orderNotification = functions.firestore.document('Orders/{orderDocId}').
             data: {
                 title:sendTitle,
                 type: sendType,
-                orderId: orderId,
+                orderId: valueObject.orderNo.toString(),
             }
         };
 
@@ -236,8 +249,8 @@ exports.orderNotification = functions.firestore.document('Orders/{orderDocId}').
 });
 
 exports.newOrderNotifications = functions.firestore.document('Orders/{orderDocId}').onCreate(async (Change, context)=>{
-    if (Change.after.data()) {
-        const valueObject = Change.after.data();
+    if (Change.data()) {
+        const valueObject = Change.data();
         console.log("Order change Detected");
         const status = valueObject.status;
         var sendTitle = '';
@@ -247,7 +260,7 @@ exports.newOrderNotifications = functions.firestore.document('Orders/{orderDocId
 
         if (valueObject.type == 'initByShop') {
             sendTitle = valueObject.shopName;
-            sendType = 'OrderDelivered';
+            sendType = 'BillSent';
             sendFcmTo = valueObject.customerFCM;
         } else {
             sendTitle = valueObject.customerName;
@@ -255,45 +268,13 @@ exports.newOrderNotifications = functions.firestore.document('Orders/{orderDocId
             sendFcmTo = valueObject.shopFCM;
         }
 
-
-        switch(status){
-            case 'ORDER REQUESTED' : {
-                sendTitle = valueObject.customerName;
-                sendType = 'OrderRequestUpdated';
-                sendFcmTo = valueObject.shopFCM;
-            }
-            case 'PROCESSING' : {
-                sendTitle = valueObject.shopName;
-                if (valueObject.type == 'initByShop') {
-                    sendType = 'BillUpdated'
-                } else {
-                    sendType = 'RequestAccepted';
-                }
-                sendFcmTo = valueObject.customerFCM;
-            }
-            case 'CONFIRMED' : {
-                sendTitle = valueObject.customerName;
-                sendType = 'BillAccepted';
-                sendFcmTo = valueObject.shopFCM;
-            }
-            case 'ORDER DELIVERED' : {
-                sendTitle = valueObject.shopName;
-                sendType = 'OrderDelivered';
-                sendFcmTo = valueObject.customerFCM;
-            }
-            default : {
-                sendTitle = 'Order Delivered';
-                sendType = 'OrderDelivered';
-                sendFcmTo = valueObject.customerFCM;
-            }
-        }
     
         // Create a notification
         const payload = {
             data: {
                 title:sendTitle,
                 type: sendType,
-                orderId: orderId,
+                orderId: valueObject.orderNo.toString(),
             }
         };
 
