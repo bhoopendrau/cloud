@@ -154,6 +154,7 @@ exports.agentRequest = functions.firestore.document('OngoingAgentAllot/{allotId}
                 title:'New assignment available',
                 type: "AgentAllot",
                 orderId: orderId,
+                dataId: valueObject.docId.toString()
             }
         };
 
@@ -173,7 +174,7 @@ exports.agentRequest = functions.firestore.document('OngoingAgentAllot/{allotId}
 
 
 exports.orderNotification = functions.firestore.document('Orders/{orderDocId}').onUpdate(async (Change, context)=>{
-    if (Change.after.data()) {
+    if (Change.after.data() && Change.before.data()) {
         const valueObject = Change.after.data();
         console.log("Order change Detected");
         const status = valueObject.status;
@@ -183,48 +184,40 @@ exports.orderNotification = functions.firestore.document('Orders/{orderDocId}').
         var sendFcmTo = '';
 
 
-        switch(status){
-            case 'ORDER REQUESTED' : {
+        if (status == "ORDER REQUESTED" ) {
+            sendTitle = valueObject.customerName;
+            sendType = 'OrderRequestUpdated';
+            sendFcmTo = valueObject.shopFCM;
+        } else if (status == "PROCESSING") {
+            sendTitle = valueObject.shopName;
+            if (valueObject.type == 'initByShop') {
+                sendType = 'BillUpdated'
+            } else {
+                sendType = 'RequestAccepted';
+            }
+            sendFcmTo = valueObject.customerFCM;
+        } else if (status ==  "CONFIRMED" ) {
+            sendTitle = valueObject.customerName;
+            sendType = 'BillAccepted';
+            sendFcmTo = valueObject.shopFCM;
+        } else if (status == "REJECTED") {
+            if (valueObject.rejectedBy == "Customer") {
                 sendTitle = valueObject.customerName;
-                sendType = 'OrderRequestUpdated';
+                sendType = 'RejectedByCustomer';
                 sendFcmTo = valueObject.shopFCM;
-            }
-            case 'PROCESSING' : {
+            } else {
                 sendTitle = valueObject.shopName;
-                if (valueObject.type == 'initByShop') {
-                    sendType = 'BillUpdated'
-                } else {
-                    sendType = 'RequestAccepted';
-                }
+                sendType = 'RejectedByShop';
                 sendFcmTo = valueObject.customerFCM;
             }
-            case 'CONFIRMED' : {
-                sendTitle = valueObject.customerName;
-                sendType = 'BillAccepted';
-                sendFcmTo = valueObject.shopFCM;
-            }
-            case 'ORDER DELIVERED' : {
-                sendTitle = valueObject.shopName;
-                sendType = 'OrderDelivered';
-                sendFcmTo = valueObject.customerFCM;
-            }
-            case 'ORDER DELIVERED' : {
-                if (valueObject.rejectedBy == "Customer") {
-                    sendTitle = valueObject.customerName;
-                    sendType = 'RejectedByCustomer';
-                    sendFcmTo = valueObject.shopFCM;
-                } else {
-                    sendTitle = valueObject.shopName;
-                    sendType = 'RejectedByShop';
-                    sendFcmTo = valueObject.customerFCM;
-                }
-                
-            }
-            default : {
-                sendTitle = 'Order Delivered';
-                sendType = 'OrderDelivered';
-                sendFcmTo = valueObject.customerFCM;
-            }
+        } else if (status == "Order Accepted" ) {
+            sendTitle = valueObject.customerName;
+            sendType = 'BillAccepted';
+            sendFcmTo = valueObject.shopFCM;
+        } else {
+            sendTitle = 'Order Delivered';
+            sendType = 'OrderDelivered';
+            sendFcmTo = valueObject.customerFCM;
         }
     
         // Create a notification
@@ -258,13 +251,13 @@ exports.newOrderNotifications = functions.firestore.document('Orders/{orderDocId
         var sendFcmTo = '';
 
 
-        if (valueObject.type == 'initByShop') {
+        if (valueObject.type == "initByShop") {
             sendTitle = valueObject.shopName;
             sendType = 'BillSent';
             sendFcmTo = valueObject.customerFCM;
         } else {
             sendTitle = valueObject.customerName;
-            sendType = 'OrderRequestUpdated';
+            sendType = 'CustomerOrderRequest';
             sendFcmTo = valueObject.shopFCM;
         }
 
