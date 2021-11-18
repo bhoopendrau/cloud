@@ -130,10 +130,15 @@ exports.agentAllot = functions.firestore.document('OngoingAgentAllot/{allotId}')
         allotSnap.forEach(element => {
             admin.firestore().collection('OngoingAgentAllot').doc(element.id).delete();
         });
-        return admin.firestore().collection('Orders').doc(orderDocId).update({
-            agentId:agentId,
-            status:'CONFIRMED'
+        admin.firestore().collection('Orders').doc(orderDocId).update({
+            agentAssigned: true,
+            agentAssignedId: agentId,
+            agentStatus:"ASSIGNED",
+            status:"CONFIRMED"
         });
+
+
+
         return true;
     } else {
         return true;
@@ -184,6 +189,21 @@ exports.orderNotification = functions.firestore.document('Orders/{orderDocId}').
         var sendFcmTo = '';
 
 
+        // Create a notification
+        const payload = {
+            data: {
+                title:sendTitle,
+                type: sendType,
+                orderId: valueObject.orderNo.toString(),
+            }
+        };
+
+        //Create an options object that contains the time to live for the notification and the priority
+        const options = {
+            priority: "high"
+        };
+
+
         if (status == "ORDER REQUESTED" ) {
             sendTitle = valueObject.customerName;
             sendType = 'OrderRequestUpdated';
@@ -200,6 +220,10 @@ exports.orderNotification = functions.firestore.document('Orders/{orderDocId}').
             sendTitle = valueObject.customerName;
             sendType = 'BillAccepted';
             sendFcmTo = valueObject.shopFCM;
+        } else if (status ==  "PICKED UP" ) {
+            sendTitle = valueObject.shopName;
+            sendType = 'PickedUp';
+            sendFcmTo = valueObject.customerFCM;
         } else if (status == "REJECTED") {
             if (valueObject.rejectedBy == "Customer") {
                 sendTitle = valueObject.customerName;
@@ -215,24 +239,17 @@ exports.orderNotification = functions.firestore.document('Orders/{orderDocId}').
             sendType = 'BillAccepted';
             sendFcmTo = valueObject.shopFCM;
         } else {
-            sendTitle = 'Order Delivered';
+            sendType = 'OrderDeliveredForShop';
+            sendTitle = valueObject.orderNo;
+            sendFcmTo = valueObject.shopFCM;
+            admin.messaging().sendToDevice(sendFcmTo, payload, options);
+
             sendType = 'OrderDelivered';
+            sendTitle = valueObject.orderNo;
             sendFcmTo = valueObject.customerFCM;
         }
     
-        // Create a notification
-        const payload = {
-            data: {
-                title:sendTitle,
-                type: sendType,
-                orderId: valueObject.orderNo.toString(),
-            }
-        };
-
-        //Create an options object that contains the time to live for the notification and the priority
-        const options = {
-            priority: "high"
-        };
+        
         return admin.messaging().sendToDevice(sendFcmTo, payload, options);
     
     } else {
