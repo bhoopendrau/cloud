@@ -17,12 +17,12 @@ exports.pushNotification = functions.region('asia-south1').firestore.document('C
         var shopId = valueObject.shopId;
         var type = "";
         
-        const customerSnap = await admin.firestore().collection('Users').doc(customerId).get();
-        const shopSnap = await admin.firestore().collection('Users').doc(shopId).get();
         const customerSideList = admin.firestore().collection('CustomerSideList').doc(customerId).collection('sender').doc(shopId);
-        const shopSideList = admin.firestore().collection('ShopSideList').doc(shopId).collection('sender').doc(customerId);
-        const customerSideSnap = await customerSideList.get();
-        const shopSideSnap = await shopSideList.get();
+        const shopSideList = admin.firestore().collection('ShopSideList').doc(shopId).collection('sender').doc(customerId)
+
+        let [customerSnap, shopSnap, customerSideSnap, shopSideSnap] = await Promise.all([admin.firestore().collection('Users').doc(customerId).get(), 
+            admin.firestore().collection('Users').doc(shopId).get(), 
+            customerSideList.get(), shopSideList.get()])
 
         var customerlist = {
             name: shopSnap.data().Name,
@@ -192,19 +192,7 @@ exports.orderNotification = functions.region('asia-south1').firestore.document('
         var sendFcmTo = '';
 
 
-        // Create a notification
-        const payload = {
-            data: {
-                title:sendTitle,
-                type: sendType,
-                orderId: valueObject.orderNo.toString(),
-            }
-        };
-
-        //Create an options object that contains the time to live for the notification and the priority
-        const options = {
-            priority: "high"
-        };
+        
 
 
         if (status == "ORDER REQUESTED" ) {
@@ -245,12 +233,39 @@ exports.orderNotification = functions.region('asia-south1').firestore.document('
             sendType = 'OrderDeliveredForShop';
             sendTitle = valueObject.orderNo;
             sendFcmTo = valueObject.shopFCM;
+            // Create a notification
+            const payload = {
+                data: {
+                    title:sendTitle,
+                    type: sendType,
+                    orderId: valueObject.orderNo.toString(),
+                }
+            };
+
+            //Create an options object that contains the time to live for the notification and the priority
+            const options = {
+                priority: "high"
+            };
             admin.messaging().sendToDevice(sendFcmTo, payload, options);
 
             sendType = 'OrderDelivered';
             sendTitle = valueObject.orderNo;
             sendFcmTo = valueObject.customerFCM;
         }
+
+        // Create a notification
+        const payload = {
+            data: {
+                title:sendTitle,
+                type: sendType,
+                orderId: valueObject.orderNo.toString(),
+            }
+        };
+
+        //Create an options object that contains the time to live for the notification and the priority
+        const options = {
+            priority: "high"
+        };
     
         
         return admin.messaging().sendToDevice(sendFcmTo, payload, options);
@@ -308,6 +323,7 @@ exports.newOrderNotifications = functions.region('asia-south1').firestore.docume
 exports.orderNoGenerator = functions.region('asia-south1').firestore.document('OrderPlaceholder/{orderDocId}').onUpdate(async (Change, context)=>{
     if (Change.after.data()) {
         const valueObject = Change.after.data();
+        valueObject.createdAt =  admin.firestore.FieldValue.serverTimestamp()
         console.log("Order Placeholder");
         return admin.firestore().collection('Orders').doc().set(valueObject);
     
