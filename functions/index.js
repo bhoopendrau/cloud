@@ -5,7 +5,7 @@ const admin = require('firebase-admin');
 const { Change } = require('firebase-functions');
 admin.initializeApp(functions.config().firebase);
 
-exports.pushNotification = functions.firestore.document('ChatData/{chatId}').onWrite(async (Change, context)=>{
+exports.pushNotification = functions.region('asia-south1').firestore.document('ChatData/{chatId}').onWrite(async (Change, context)=>{
         //  Grab the current value of what was written to the Realtime Database.
         //console.log(Change.after.data());
         const valueObject = Change.after.data();
@@ -119,7 +119,7 @@ exports.pushNotification = functions.firestore.document('ChatData/{chatId}').onW
 
 
 
-exports.agentAllot = functions.firestore.document('OngoingAgentAllot/{allotId}').onUpdate(async (Change, context)=>{
+exports.agentAllot = functions.region('asia-south1').firestore.document('OngoingAgentAllot/{allotId}').onUpdate(async (Change, context)=>{
     const valueObject = Change.after.data();
     const agentId = valueObject.agentId;
     const orderDocId = valueObject.orderDocId;
@@ -136,6 +136,9 @@ exports.agentAllot = functions.firestore.document('OngoingAgentAllot/{allotId}')
             agentStatus:"ASSIGNED",
             status:"CONFIRMED"
         });
+        admin.firestore().collection('Agents').doc(agentId).update(
+            {ongoingOrders: admin.firestore.FieldValue.increment(1)}
+            )
 
 
 
@@ -145,7 +148,7 @@ exports.agentAllot = functions.firestore.document('OngoingAgentAllot/{allotId}')
     } 
 });
 
-exports.agentRequest = functions.firestore.document('OngoingAgentAllot/{allotId}').onCreate(async (Change, context)=>{
+exports.agentRequest = functions.region('asia-south1').firestore.document('OngoingAgentAllot/{allotId}').onCreate(async (Change, context)=>{
     if (Change.data()) {
         const valueObject = Change.data();
         const agentId = valueObject.agentId;
@@ -178,7 +181,7 @@ exports.agentRequest = functions.firestore.document('OngoingAgentAllot/{allotId}
 
 
 
-exports.orderNotification = functions.firestore.document('Orders/{orderDocId}').onUpdate(async (Change, context)=>{
+exports.orderNotification = functions.region('asia-south1').firestore.document('Orders/{orderDocId}').onUpdate(async (Change, context)=>{
     if (Change.after.data() && Change.before.data()) {
         const valueObject = Change.after.data();
         console.log("Order change Detected");
@@ -258,7 +261,7 @@ exports.orderNotification = functions.firestore.document('Orders/{orderDocId}').
     
 });
 
-exports.newOrderNotifications = functions.firestore.document('Orders/{orderDocId}').onCreate(async (Change, context)=>{
+exports.newOrderNotifications = functions.region('asia-south1').firestore.document('Orders/{orderDocId}').onCreate(async (Change, context)=>{
     if (Change.data()) {
         const valueObject = Change.data();
         console.log("Order change Detected");
@@ -293,6 +296,20 @@ exports.newOrderNotifications = functions.firestore.document('Orders/{orderDocId
             priority: "high"
         };
         return admin.messaging().sendToDevice(sendFcmTo, payload, options);
+    
+    } else {
+        return true;
+    }
+    
+});
+
+
+
+exports.orderNoGenerator = functions.region('asia-south1').firestore.document('OrderPlaceholder/{orderDocId}').onUpdate(async (Change, context)=>{
+    if (Change.after.data()) {
+        const valueObject = Change.after.data();
+        console.log("Order Placeholder");
+        return admin.firestore().collection('Orders').doc().set(valueObject);
     
     } else {
         return true;
